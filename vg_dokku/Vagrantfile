@@ -1,0 +1,26 @@
+
+
+dokku_config = {
+  'DOKKU_TAG' => "v0.4.13",
+}
+
+# build envs to pass on to the vm
+env_hash =  {}
+for env in dokku_config.keys
+    val = ENV[env] || dokku_config[env]
+    if val
+        env_hash[env] = val
+    else
+      print "[WARN] Empty #{env} - please export #{env}=<address>\n"
+    end
+end
+
+Vagrant.configure("2") do |config|
+    config.vm.box = "ubuntu/trusty64"
+    config.vm.provider "virtualbox" do |vb|
+        vb.memory = "4096"
+        end
+    config.vm.provision "shell", path: "bootstrap.sh", env: env_hash
+    config.vm.network "private_network", type: "dhcp"
+    config.vm.synced_folder "~/vbox_shares/image/", "/media/images"
+end
