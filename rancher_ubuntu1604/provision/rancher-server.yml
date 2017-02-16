@@ -1,0 +1,59 @@
+---
+- hosts: server
+  become: true
+  remote_user: ubuntu
+  gather_facts: false
+  pre_tasks:
+    - name: Bootstrap python
+      raw: test -e /usr/bin/python || apt-get update && apt-get -y install python-pip
+      changed_when: false
+  tasks:
+    - name: Get uname
+      command: uname -r
+      register: uname
+      changed_when: false
+    - name: Add apt key for docker
+      apt_key:
+        keyserver: hkp://p80.pool.sks-keyservers.net:80
+        id: 58118E89F3A912897C070ADBF76221572C52609D
+    - name: Install docker-py
+      pip:
+        name: "{{ item }}"
+      with_items:
+        - docker-py
+    - name: Copy docker apt sources
+      copy:
+        src: docker.list
+        dest: /etc/apt/sources.list.d/
+    - name: Update cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    - name: Install packages
+      apt: name={{item}} update_cache=yes
+      with_items:
+        - apt-transport-https
+        - ca-certificates
+        - linux-image-extra-{{uname.stdout}}
+        - docker-engine
+    - name: Add user ubuntu to docker group
+      user:
+        name: ubuntu
+        groups: docker
+    - name: Restart docker service
+      systemd:
+        name: docker
+        state: restarted
+    - name: Get IP address of database host
+      command: bash -c "getent hosts rancher-db | awk '{print $1}'"
+      register: dbhost
+    - name: Start rancher service
+      docker_container:
+        name: rancher-server
+        pull: true
+        image: rancher/server
+        restart_policy: unless-stopped
+        command: "--db-host {{ dbhost.stdout }}"
+        detach: true
+        ports:
+          - "8080:8080"

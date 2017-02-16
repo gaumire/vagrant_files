@@ -1,0 +1,48 @@
+---
+- hosts: db
+  become: true
+  remote_user: ubuntu
+  gather_facts: false
+  pre_tasks:
+    - name: Bootstrap python
+      raw: test -e /usr/bin/python || apt-get update && apt-get -y install python-pip
+      changed_when: false
+  tasks:
+    - name: Update cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    - name: Install packages
+      apt: name={{item}}
+      with_items:
+        - mysql-server
+        - python-dev
+        - libmysqlclient-dev
+    - name: Install pip packages
+      pip:
+        name: "{{item}}"
+      with_items:
+        - MySQL-python
+    - name: Create rancher database
+      mysql_db:
+        name: cattle
+        state: present
+    - name: Create rancher mysql user
+      mysql_user:
+        name: cattle
+        password: cattle
+        host: '%'
+        priv: 'cattle.*:ALL'
+        state: present
+    - name: Change mysql bind address
+      replace:
+        dest: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^bind-address\s*=\s127.0.0.1'
+        replace: 'bind-address = 0.0.0.0'
+      notify: restart mysql
+
+  handlers:
+    - name: restart mysql
+      systemd:
+        name: mysql
+        state: restarted
