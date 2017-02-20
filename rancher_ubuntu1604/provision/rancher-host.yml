@@ -34,7 +34,7 @@
         - apt-transport-https
         - ca-certificates
         - linux-image-extra-{{uname.stdout}}
-        - docker-engine
+        - docker-engine=1.12.6-0~ubuntu-xenial
     - name: Add user ubuntu to docker group
       user:
         name: ubuntu
@@ -43,3 +43,30 @@
       systemd:
         name: docker
         state: restarted
+    - name: Get IP address of rancher-host
+      command: bash -c "getent hosts rancher-host | grep 192 | awk '{print $1}'"
+      register: rancherhost
+    - name: Get IP address of rancher server
+      command: bash -c "getent hosts rancher-server | awk '{print $1}'"
+      register: rancherserver
+    - name: Get rancher registration token
+      uri:
+        url: "http://{{rancherserver.stdout}}:8080/v1/projects/1a5/registrationTokens"
+        method: GET
+      register: ranchertoken
+    - name: Pull rancher agent image
+      docker_image:
+        name: rancher/agent
+        tag: v1.2.0
+    - name: Add host to rancher
+      docker_container:
+        name: rancherinitagent
+        image: rancher/agent:v1.2.0
+        privileged: true
+        detach: true
+        env:
+          CATTLE_AGENT_IP: "{{rancherhost.stdout}}"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /var/lib/rancher:/var/lib/rancher
+        command: "{{ranchertoken.json['data'][0]['registrationUrl']}}"

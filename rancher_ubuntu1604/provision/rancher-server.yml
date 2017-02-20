@@ -35,7 +35,7 @@
         - apt-transport-https
         - ca-certificates
         - linux-image-extra-{{uname.stdout}}
-        - docker-engine
+        - docker-engine=1.12.6-0~ubuntu-xenial
     - name: Add user ubuntu to docker group
       user:
         name: ubuntu
@@ -47,13 +47,55 @@
     - name: Get IP address of database host
       command: bash -c "getent hosts rancher-db | awk '{print $1}'"
       register: dbhost
+    - name: Get IP address of rancher server
+      command: bash -c "getent hosts rancher-server | grep 192 | awk '{print $1}'"
+      register: rancherserver
+    - name: Pull rancher server image
+      docker_image:
+        name: rancher/server
+        tag: v1.3.4
+    - name: Pull rancher agent image
+      docker_image:
+        name: rancher/agent
+        tag: v1.2.0
     - name: Start rancher service
       docker_container:
         name: rancher-server
-        pull: true
-        image: rancher/server
+        env:
+          CATTLE_API_HOST: "http://{{rancherserver.stdout}}:8080"
+        image: rancher/server:v1.3.4
         restart_policy: unless-stopped
         command: "--db-host {{ dbhost.stdout }}"
         detach: true
         ports:
           - "8080:8080"
+    - name: Wait for rancher to come up
+      uri:
+        url: http://127.0.0.1:8080/v1/projects/1a5/registrationTokens
+        status_code: 200
+      register: rancher_host_result
+      until: rancher_host_result.status == 200
+      retries: 30
+      delay: 5
+    - name: Create rancher registration token
+      uri:
+        url: http://127.0.0.1:8080/v1/projects/1a5/registrationTokens
+        method: POST
+        status_code: 201
+    - name: Get rancher registration token
+      uri:
+        url: http://127.0.0.1:8080/v1/projects/1a5/registrationTokens
+        method: GET
+      register: ranchertoken
+    - name: Add host to rancher
+      docker_container:
+        name: rancherinitagent
+        image: rancher/agent:v1.2.0
+        privileged: true
+        detach: true
+        env:
+          CATTLE_AGENT_IP: "{{rancherserver.stdout}}"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /var/lib/rancher:/var/lib/rancher
+        command: "{{ranchertoken.json['data'][0]['registrationUrl']}}"
