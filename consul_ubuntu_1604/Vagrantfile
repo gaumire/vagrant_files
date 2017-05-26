@@ -1,0 +1,48 @@
+
+Vagrant.configure("2") do |config|
+    config.vm.box = "ubuntu/xenial64"
+    config.hostmanager.enabled = true
+    config.vm.provider "virtualbox" do |vb|
+        vb.memory = "512"
+        end
+    config.vm.define "consul1" do |consul1|
+      consul1.vm.box = "ubuntu/xenial64"
+      consul1.vm.hostname = "consul1"
+      consul1.vm.network "private_network", ip: "192.168.135.10"
+      consul1.vm.synced_folder "~/vbox_shares/image/", "/media/images"
+      consul1.vm.provision "shell", path: "consul_server.sh"
+    end
+
+    config.vm.define "consul2" do |consul2|
+      consul2.vm.box = "ubuntu/xenial64"
+      consul2.vm.hostname = "consul2"
+      consul2.vm.network "private_network", ip: "192.168.135.11"
+      consul2.vm.synced_folder "~/vbox_shares/image/", "/media/images"
+      consul2.vm.provision "shell", path: "consul_server.sh"
+    end
+
+    config.vm.define "consul3" do |consul3|
+      consul3.vm.box = "ubuntu/xenial64"
+      consul3.vm.hostname = "consul3"
+      consul3.vm.network "private_network", ip: "192.168.135.12"
+      consul3.vm.synced_folder "~/vbox_shares/image/", "/media/images"
+      consul3.vm.provision "shell", path: "consul_server.sh"
+    end
+
+    config.vm.define "client1" do |client1|
+      client1.vm.box = "ubuntu/xenial64"
+      client1.vm.hostname = "client1"
+      client1.vm.network "private_network", ip: "192.168.135.13"
+      client1.vm.synced_folder "~/vbox_shares/image/", "/media/images"
+      client1.vm.provision "shell", path: "consul_client.sh"
+    end
+
+    config.vm.define "client2" do |client2|
+      client2.vm.box = "ubuntu/xenial64"
+      client2.vm.hostname = "client2"
+      client2.vm.network "private_network", ip: "192.168.135.14"
+      client2.vm.synced_folder "~/vbox_shares/image/", "/media/images"
+      client2.vm.provision "shell", path: "consul_client.sh"
+    end
+
+end
