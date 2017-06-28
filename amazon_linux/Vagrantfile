@@ -1,6 +1,7 @@
 Vagrant.configure("2") do |config|
   config.vm.box = "mvbcoding/awslinux"
-  # config.vm.provision "shell", path: "bootstrap.sh"
+  config.vm.provision "shell", path: "bootstrap.sh"
+  config.vm.network 'private_network', type: "dhcp"
   # config.vm.provider "virtualbox" do |vb|
   #    file_to_disk = '/tmp/large_disk.vdi'
   #    unless File.exist?(file_to_disk)
